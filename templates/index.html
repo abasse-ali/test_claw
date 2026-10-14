@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="budget-grid">
+    <!-- REVENUS -->
+    <section class="section income">
+        <div class="section-header">
+            <h2 class="section-title">💵 Revenus</h2>
+            <span class="section-total">{{ format_amount(totals.income) }}</span>
+        </div>
+        <form class="entry-form hidden" id="income-form" method="POST" action="{{ url_for('add_entry') }}">
+            <input type="hidden" name="type" value="income">
+            <input type="hidden" name="month" value="{{ month }}">
+            <div class="form-row">
+                <input type="text" name="label" placeholder="Libellé (ex: Salaire)" required>
+                <input type="number" name="amount" step="0.01" min="0.01" placeholder="Montant" required>
+                <input type="date" name="date" value="{{ month }}-01" required>
+            </div>
+            <button type="submit" class="btn btn-success">Ajouter</button>
+        </form>
+        <button class="btn btn-primary toggle-form" data-form="income-form">➕ Ajouter un revenu</button>
+
+        <ul class="entries-list">
+            {% for entry in entries_by_type.income %}
+            <li class="entry-item">
+                <div class="entry-info">
+                    <span class="entry-label">{{ entry.label }}</span>
+                    <span class="entry-meta">{{ entry.formatted_date }}</span>
+                </div>
+                <div>
+                    <span class="entry-amount income">{{ entry.formatted_amount }}</span>
+                    <div class="entry-actions">
+                        <form method="POST" action="{{ url_for('delete_entry_route', entry_id=entry.id) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-danger btn-sm delete-btn">🗑️</button>
+                        </form>
+                    </div>
+                </div>
+            </li>
+            {% else %}
+            <li class="empty-state">Aucun revenu pour ce mois</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <!-- DÉPENSES -->
+    <section class="section expense">
+        <div class="section-header">
+            <h2 class="section-title">💸 Dépenses</h2>
+            <span class="section-total">{{ format_amount(totals.expense) }}</span>
+        </div>
+        <form class="entry-form hidden" id="expense-form" method="POST" action="{{ url_for('add_entry') }}">
+            <input type="hidden" name="type" value="expense">
+            <input type="hidden" name="month" value="{{ month }}">
+            <div class="form-row">
+                <input type="text" name="label" placeholder="Libellé (ex: Loyer)" required>
+                <input type="number" name="amount" step="0.01" min="0.01" placeholder="Montant" required>
+                <input type="date" name="date" value="{{ month }}-01" required>
+                <select name="category">
+                    <option value="">Catégorie (optionnel)</option>
+                    <option value="Logement">🏠 Logement</option>
+                    <option value="Alimentation">🍕 Alimentation</option>
+                    <option value="Transport">🚌 Transport</option>
+                    <option value="Loisirs">🎮 Loisirs</option>
+                    <option value="Santé">🏥 Santé</option>
+                    <option value="Autre">📦 Autre</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-success">Ajouter</button>
+        </form>
+        <button class="btn btn-primary toggle-form" data-form="expense-form">➕ Ajouter une dépense</button>
+
+        <ul class="entries-list">
+            {% for entry in entries_by_type.expense %}
+            <li class="entry-item">
+                <div class="entry-info">
+                    <span class="entry-label">{{ entry.label }}</span>
+                    <span class="entry-meta">
+                        {{ entry.formatted_date }}
+                        {% if entry.category %}• {{ entry.category }}{% endif %}
+                    </span>
+                </div>
+                <div>
+                    <span class="entry-amount expense">{{ entry.formatted_amount }}</span>
+                    <div class="entry-actions">
+                        <form method="POST" action="{{ url_for('delete_entry_route', entry_id=entry.id) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-danger btn-sm delete-btn">🗑️</button>
+                        </form>
+                    </div>
+                </div>
+            </li>
+            {% else %}
+            <li class="empty-state">Aucune dépense pour ce mois</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <!-- ÉPARGNE -->
+    <section class="section savings">
+        <div class="section-header">
+            <h2 class="section-title">🏦 Épargne</h2>
+            <span class="section-total">{{ format_amount(totals.savings) }}</span>
+        </div>
+        <form class="entry-form hidden" id="savings-form" method="POST" action="{{ url_for('add_entry') }}">
+            <input type="hidden" name="type" value="savings">
+            <input type="hidden" name="month" value="{{ month }}">
+            <div class="form-row">
+                <input type="text" name="label" placeholder="Libellé (ex: Livret A)" required>
+                <input type="number" name="amount" step="0.01" min="0.01" placeholder="Montant" required>
+                <input type="date" name="date" value="{{ month }}-01" required>
+            </div>
+            <button type="submit" class="btn btn-success">Ajouter</button>
+        </form>
+        <button class="btn btn-primary toggle-form" data-form="savings-form">➕ Ajouter à l'épargne</button>
+
+        <ul class="entries-list">
+            {% for entry in entries_by_type.savings %}
+            <li class="entry-item">
+                <div class="entry-info">
+                    <span class="entry-label">{{ entry.label }}</span>
+                    <span class="entry-meta">{{ entry.formatted_date }}</span>
+                </div>
+                <div>
+                    <span class="entry-amount savings">{{ entry.formatted_amount }}</span>
+                    <div class="entry-actions">
+                        <form method="POST" action="{{ url_for('delete_entry_route', entry_id=entry.id) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-danger btn-sm delete-btn">🗑️</button>
+                        </form>
+                    </div>
+                </div>
+            </li>
+            {% else %}
+            <li class="empty-state">Aucune épargne pour ce mois</li>
+            {% endfor %}
+        </ul>
+    </section>
+</div>
+
+<!-- SOLDE NET -->
+<div class="net-balance {{ 'positive' if net_balance >= 0 else 'negative' }}">
+    <div class="net-balance-label">Solde net (Revenus - Dépenses - Épargne)</div>
+    <div class="net-balance-value {{ 'positive' if net_balance >= 0 else 'negative' }}">
+        {{ format_amount(net_balance) }}
+    </div>
+</div>
+{% endblock %}
