@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionnaire de Budget Mensuel</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #ddd;
+        }
+        h1 { font-size: 1.8rem; color: #2c3e50; }
+        .header-actions { display: flex; align-items: center; gap: 15px; }
+        .month-nav { display: flex; align-items: center; gap: 15px; }
+        .month-nav button {
+            padding: 8px 16px; background: #3498db; color: white;
+            text-decoration: none; border-radius: 4px; font-size: 0.9rem;
+            border: none; cursor: pointer;
+        }
+        .month-nav button:hover { background: #2980b9; }
+        .month-nav button:disabled { background: #bdc3c7; cursor: not-allowed; }
+        .month-nav span { font-weight: 600; font-size: 1.1rem; }
+        .btn-export {
+            padding: 8px 16px; background: #27ae60; color: white;
+            text-decoration: none; border-radius: 4px; font-size: 0.9rem;
+            border: none; cursor: pointer;
+        }
+        .btn-export:hover { background: #229954; }
+
+        .flash {
+            padding: 12px 16px; border-radius: 4px; margin-bottom: 20px;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .flash.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .flash.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        .budget-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        @media (max-width: 768px) { .budget-grid { grid-template-columns: 1fr; } }
+
+        .section {
+            background: white; border-radius: 8px; padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #eee;
+        }
+        .section-title { font-size: 1.1rem; font-weight: 600; }
+        .section-total { font-size: 1.2rem; font-weight: 700; }
+        .income .section-title { color: #27ae60; }
+        .income .section-total { color: #27ae60; }
+        .expense .section-title { color: #e74c3c; }
+        .expense .section-total { color: #e74c3c; }
+        .savings .section-title { color: #f39c12; }
+        .savings .section-total { color: #f39c12; }
+
+        .entry-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .entry-form.hidden { display: none; }
+        .form-row { display: flex; gap: 10px; }
+        .form-row input, .form-row select {
+            padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem;
+        }
+        .form-row input[type="text"] { flex: 2; }
+        .form-row input[type="number"] { flex: 1; }
+        .form-row input[type="date"] { flex: 1; }
+        .form-row select { flex: 1; }
+        .btn {
+            padding: 10px 20px; border: none; border-radius: 4px;
+            cursor: pointer; font-size: 0.9rem; font-weight: 600;
+            transition: background 0.2s;
+        }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-primary:hover { background: #2980b9; }
+        .btn-success { background: #27ae60; color: white; }
+        .btn-success:hover { background: #229954; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-danger:hover { background: #c0392b; }
+        .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+
+        .entries-list { list-style: none; }
+        .entry-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 0; border-bottom: 1px solid #f0f0f0;
+        }
+        .entry-item:last-child { border-bottom: none; }
+        .entry-info { display: flex; flex-direction: column; gap: 2px; }
+        .entry-label { font-weight: 500; }
+        .entry-meta { font-size: 0.8rem; color: #666; }
+        .entry-amount { font-weight: 600; font-size: 1rem; }
+        .entry-actions { display: flex; gap: 8px; }
+        .entry-amount.income { color: #27ae60; }
+        .entry-amount.expense { color: #e74c3c; }
+        .entry-amount.savings { color: #f39c12; }
+
+        .net-balance {
+            margin-top: 30px; padding: 20px; background: white;
+            border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .net-balance.positive { border-left: 5px solid #27ae60; }
+        .net-balance.negative { border-left: 5px solid #e74c3c; }
+        .net-balance-label { font-size: 1rem; color: #666; margin-bottom: 8px; }
+        .net-balance-value { font-size: 2rem; font-weight: 700; }
+        .net-balance-value.positive { color: #27ae60; }
+        .net-balance-value.negative { color: #e74c3c; }
+
+        .empty-state { text-align: center; color: #999; padding: 20px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💰 Gestionnaire de Budget Mensuel</h1>
+            <div class="header-actions">
+                <nav class="month-nav">
+                    <button id="prev-month" aria-label="Mois précédent">← Mois précédent</button>
+                    <span id="current-month-display"></span>
+                    <button id="next-month" aria-label="Mois suivant">Mois suivant →</button>
+                </nav>
+                <button id="export-csv" class="btn-export">📥 Exporter CSV</button>
+            </div>
+        </header>
+
+        <div id="flash-container"></div>
+
+        <div class="budget-grid">
+            <!-- REVENUS -->
+            <section class="section income">
+                <div class="section-header">
+                    <h2 class="section-title">💵 Revenus</h2>
+                    <span class="section-total" id="income-total">0,00 €</span>
+                </div>
+                <form class="entry-form hidden" id="income-form">
+                    <input type="hidden" name="type" value="income">
+                    <div class="form-row">
+                        <input type="text" name="label" placeholder="Libellé (ex: Salaire)" required>
+                        <input type="number" name="amount" step="0.01" min="0.01" placeholder="Montant" required>
+                        <input type="date" name="date" required>
+                    </div>
+                    <button type="submit" class="btn btn-success">Ajouter</button>
+                </form>
+                <button class="btn btn-primary toggle-form" data-form="income-form">➕ Ajouter un revenu</button>
+
+                <ul class="entries-list" id="income-list"></ul>
+            </section>
+
+            <!-- DÉPENSES -->
+            <section class="section expense">
+                <div class="section-header">
+                    <h2 class="section-title">💸 Dépenses</h2>
+                    <span class="section-total" id="expense-total">0,00 €</span>
+                </div>
+                <form class="entry-form hidden" id="expense-form">
+                    <input type="hidden" name="type" value="expense">
+                    <div class="form-row">
+                        <input type="text" name="label" placeholder="Libellé (ex: Loyer)" required>
+                        <input type="number" name="amount" step="0.01" min="0.01" placeholder="Montant" required>
+                        <input type="date" name="date" required>
+                        <select name="category">
+                            <option value="">Catégorie (optionnel)</option>
+                            <option value="Logement">🏠 Logement</option>
+                            <option value="Alimentation">🍕 Alimentation</option>
+                            <option value="Transport">🚌 Transport</option>
+                            <option value="Loisirs">🎮 Loisirs</option>
+                            <option value="Santé">🏥 Santé</option>
+                            <option value="Autre">📦 Autre</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-success">Ajouter</button>
+                </form>
+                <button class="btn btn-primary toggle-form" data-form="expense-form">➕ Ajouter une dépense</button>
+
+                <ul class="entries-list" id="expense-list"></ul>
+            </section>
+
+            <!-- ÉPARGNE -->
+            <section class="section savings">
+                <div class="section-header">
+                    <h2 class="section-title">🏦 Épargne</h2>
+                    <span class="section-total" id="savings-total">0,00 €</span>
+                </div>
+                <form class="entry-form hidden" id="savings-form">
+                    <input type="hidden" name="type" value="savings">
+                    <div class="form-row">
+                        <input type="text" name="label" placeholder="Libellé (ex: Livret A)" required>
+                        <input type="number" name="amount" step="0.01" min="0.01" placeholder="Montant" required>
+                        <input type="date" name="date" required>
+                    </div>
+                    <button type="submit" class="btn btn-success">Ajouter</button>
+                </form>
+                <button class="btn btn-primary toggle-form" data-form="savings-form">➕ Ajouter à l'épargne</button>
+
+                <ul class="entries-list" id="savings-list"></ul>
+            </section>
+        </div>
+
+        <!-- SOLDE NET -->
+        <div class="net-balance" id="net-balance">
+            <div class="net-balance-label">Solde net (Revenus - Dépenses - Épargne)</div>
+            <div class="net-balance-value" id="net-balance-value">0,00 €</div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // STORAGE & DATA HELPERS
+        // ============================================================
+        const STORAGE_KEY = 'budget_entries';
+
+        function getEntries() {
+            try {
+                const data = localStorage.getItem(STORAGE_KEY);
+                return data ? JSON.parse(data) : [];
+            } catch {
+                return [];
+            }
+        }
+
+        function saveEntries(entries) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+        }
+
+        function generateId() {
+            return Date.now() + Math.random().toString(36).substr(2, 9);
+        }
+
+        // ============================================================
+        // DECIMAL HELPERS (avoid floating-point errors)
+        // ============================================================
+        function parseAmount(amountStr) {
+            if (!amountStr || !amountStr.trim()) {
+                throw new Error('Montant requis');
+            }
+            // Accept both comma and dot, remove spaces
+            const cleaned = amountStr.trim().replace(',', '.').replace(' ', '');
+            // Check for negative sign early
+            if (cleaned.startsWith('-')) {
+                throw new Error('Le montant doit être positif');
+            }
+            // Parse as integer cents to avoid float precision issues
+            // Split on decimal point
+            const parts = cleaned.split('.');
+            if (parts.length > 2) {
+                throw new Error('Montant invalide');
+            }
+            const integerPart = parts[0] === '' ? '0' : parts[0];
+            let decimalPart = parts[1] || '0';
+            // Validate integer part is a valid number
+            if (!/^\d+$/.test(integerPart)) {
+                throw new Error('Montant invalide');
+            }
+            // Pad or truncate to exactly 2 digits
+            if (decimalPart.length === 1) {
+                decimalPart += '0';
+            } else if (decimalPart.length > 2) {
+                // Round half up: check 3rd digit
+                const thirdDigit = parseInt(decimalPart[2], 10);
+                decimalPart = decimalPart.slice(0, 2);
+                if (thirdDigit >= 5) {
+                    // Round up
+                    let cents = parseInt(integerPart, 10) * 100 + parseInt(decimalPart, 10) + 1;
+                    return cents;
+                }
+            }
+            if (!/^\d+$/.test(decimalPart)) {
+                throw new Error('Montant invalide');
+            }
+            const cents = parseInt(integerPart, 10) * 100 + parseInt(decimalPart, 10);
+            if (cents <= 0) {
+                throw new Error('Le montant doit être positif');
+            }
+            return cents;
+        }
+
+        function formatAmount(cents) {
+            // cents is an integer (e.g. 123456 for 1234.56 €)
+            if (typeof cents !== 'number' || !Number.isInteger(cents)) {
+                // Fallback for any legacy float values
+                cents = Math.round(cents * 100);
+            }
+            const sign = cents < 0 ? '-' : '';
+            const absCents = Math.abs(cents);
+            const euros = Math.floor(absCents / 100);
+            const centimes = absCents % 100;
+            const euroStr = String(euros).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+            const centimeStr = String(centimes).padStart(2, '0');
+            return `${sign}${euroStr},${centimeStr} €`;
+        }
+
+        function parseDate(dateStr) {
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) throw new Error('Date invalide');
+            return new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+
+        function formatDate(date) {
+            const d = new Date(date);
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+
+        function getMonthBounds(monthStr) {
+            const [year, month] = monthStr.split('-').map(Number);
+            const first = new Date(year, month - 1, 1);
+            const last = new Date(year, month, 0); // last day of month
+            return { first, last };
+        }
+
+        function validateDateInMonth(dateStr, monthStr) {
+            const date = parseDate(dateStr);
+            const { first, last } = getMonthBounds(monthStr);
+            if (date < first || date > last) {
+                throw new Error(`La date doit être dans le mois ${monthStr}`);
+            }
+            return date;
+        }
+
+        function getCurrentMonth() {
+            const now = new Date();
+            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        function getPrevNextMonth(monthStr) {
+            const [year, month] = monthStr.split('-').map(Number);
+            // Previous
+            let prevYear = year, prevMonth = month - 1;
+            if (prevMonth === 0) { prevMonth = 12; prevYear--; }
+            // Next
+            let nextYear = year, nextMonth = month + 1;
+            if (nextMonth === 13) { nextMonth = 1; nextYear++; }
+            return {
+                prev: `${prevYear}-${String(prevMonth).padStart(2, '0')}`,
+                next: `${nextYear}-${String(nextMonth).padStart(2, '0')}`
+            };
+        }
+
+        // ============================================================
+        // STATE
+        // ============================================================
+        let currentMonth = getCurrentMonth();
+
+        // ============================================================
+        // DOM ELEMENTS
+        // ============================================================
+        const flashContainer = document.getElementById('flash-container');
+        const currentMonthDisplay = document.getElementById('current-month-display');
+        const prevMonthBtn = document.getElementById('prev-month');
+        const nextMonthBtn = document.getElementById('next-month');
+        const exportCsvBtn = document.getElementById('export-csv');
+
+        const incomeTotalEl = document.getElementById('income-total');
+        const expenseTotalEl = document.getElementById('expense-total');
+        const savingsTotalEl = document.getElementById('savings-total');
+        const netBalanceEl = document.getElementById('net-balance');
+        const netBalanceValueEl = document.getElementById('net-balance-value');
+
+        const incomeList = document.getElementById('income-list');
+        const expenseList = document.getElementById('expense-list');
+        const savingsList = document.getElementById('savings-list');
+
+        const incomeForm = document.getElementById('income-form');
+        const expenseForm = document.getElementById('expense-form');
+        const savingsForm = document.getElementById('savings-form');
+
+        // ============================================================
+        // FLASH MESSAGES
+        // ============================================================
+        function showFlash(message, type = 'success') {
+            const div = document.createElement('div');
+            div.className = `flash ${type}`;
+            div.textContent = message;
+            flashContainer.appendChild(div);
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        // ============================================================
+        // RENDER
+        // ============================================================
+        function render() {
+            // Update month display
+            const [year, month] = currentMonth.split('-');
+            const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+                                'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+            currentMonthDisplay.textContent = `${monthNames[parseInt(month) - 1]} ${year}`;
+
+            // Get entries for current month
+            const allEntries = getEntries();
+            const { first, last } = getMonthBounds(currentMonth);
+            const firstStr = first.toISOString().split('T')[0];
+            const lastStr = last.toISOString().split('T')[0];
+
+            const entries = allEntries.filter(e => e.date >= firstStr && e.date <= lastStr);
+
+            // Group by type
+            const byType = { income: [], expense: [], savings: [] };
+            entries.forEach(e => byType[e.type].push(e));
+
+            // Sort by date
+            Object.values(byType).forEach(list => list.sort((a, b) => a.date.localeCompare(b.date)));
+
+            // Calculate totals
+            const totals = { income: 0, expense: 0, savings: 0 };
+            entries.forEach(e => totals[e.type] += e.amount);
+
+            const net = totals.income - totals.expense - totals.savings;
+
+            // Render totals
+            incomeTotalEl.textContent = formatAmount(totals.income);
+            expenseTotalEl.textContent = formatAmount(totals.expense);
+            savingsTotalEl.textContent = formatAmount(totals.savings);
+            netBalanceValueEl.textContent = formatAmount(net);
+            netBalanceEl.className = `net-balance ${net >= 0 ? 'positive' : 'negative'}`;
+            netBalanceValueEl.className = `net-balance-value ${net >= 0 ? 'positive' : 'negative'}`;
+
+            // Render lists
+            renderList(incomeList, byType.income, 'income');
+            renderList(expenseList, byType.expense, 'expense');
+            renderList(savingsList, byType.savings, 'savings');
+
+            // Set default date for forms
+            const firstDayStr = firstStr;
+            document.querySelectorAll('input[name="date"]').forEach(input => {
+                if (!input.value) input.value = firstDayStr;
+            });
+        }
+
+        function renderList(container, entries, type) {
+            if (entries.length === 0) {
+                container.innerHTML = `<li class="empty-state">Aucun ${type === 'income' ? 'revenu' : type === 'expense' ? 'dépense' : 'épargne'} pour ce mois</li>`;
+                return;
+            }
+            container.innerHTML = entries.map(entry => `
+                <li class="entry-item" data-id="${entry.id}">
+                    <div class="entry-info">
+                        <span class="entry-label">${escapeHtml(entry.label)}</span>
+                        <span class="entry-meta">
+                            ${formatDate(entry.date)}
+                            ${entry.category ? '• ' + escapeHtml(entry.category) : ''}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="entry-amount ${type}">${formatAmount(entry.amount)}</span>
+                        <div class="entry-actions">
+                            <button class="btn btn-danger btn-sm delete-btn" data-id="${entry.id}">🗑️</button>
+                        </div>
+                    </div>
+                </li>
+            `).join('');
+
+            // Add delete handlers
+            container.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => deleteEntry(btn.dataset.id));
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ============================================================
+        // EVENT HANDLERS
+        // ============================================================
+        // Submission guard to prevent duplicate submissions (E5)
+        let isSubmitting = false;
+
+        function addEntry(form, type) {
+            if (isSubmitting) return;
+            isSubmitting = true;
+
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = true;
+
+            const formData = new FormData(form);
+            const label = formData.get('label').trim();
+            const amountStr = formData.get('amount').trim();
+            const dateStr = formData.get('date');
+            const category = formData.get('category')?.trim() || null;
+
+            try {
+                const amount = parseAmount(amountStr);
+                validateDateInMonth(dateStr, currentMonth);
+
+                const entries = getEntries();
+                entries.push({
+                    id: generateId(),
+                    type,
+                    label,
+                    amount,
+                    date: dateStr,
+                    category
+                });
+                saveEntries(entries);
+
+                showFlash('Entrée ajoutée', 'success');
+                form.reset();
+                form.classList.add('hidden');
+                const toggleBtn = document.querySelector(`.toggle-form[data-form="${form.id}"]`);
+                if (toggleBtn) toggleBtn.textContent = `➕ Ajouter ${type === 'income' ? 'un revenu' : type === 'expense' ? 'une dépense' : "à l'épargne"}`;
+                render();
+            } catch (e) {
+                showFlash(e.message, 'error');
+            } finally {
+                isSubmitting = false;
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        }
+
+        function deleteEntry(id) {
+            if (!confirm('Supprimer cette entrée ?')) return;
+
+            const entries = getEntries();
+            const index = entries.findIndex(e => e.id == id);
+            if (index === -1) {
+                showFlash('Entrée introuvable', 'error');
+                return;
+            }
+            entries.splice(index, 1);
+            saveEntries(entries);
+            showFlash('Entrée supprimée', 'success');
+            render();
+        }
+
+        function exportCsv() {
+            const allEntries = getEntries();
+            const { first, last } = getMonthBounds(currentMonth);
+            const firstStr = first.toISOString().split('T')[0];
+            const lastStr = last.toISOString().split('T')[0];
+
+            const entries = allEntries.filter(e => e.date >= firstStr && e.date <= lastStr);
+
+            const lines = ['Type;Libellé;Montant (€);Date;Catégorie'];
+            entries.forEach(e => {
+                const amountStr = formatAmount(e.amount).replace(' €', '');
+                lines.push(`${e.type};${e.label};${amountStr};${formatDate(e.date)};${e.category || ''}`);
+            });
+
+            const csv = lines.join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `budget-${currentMonth}.csv`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+        // Update URL with month parameter (E9)
+        function updateMonthUrl(month) {
+            const url = new URL(window.location);
+            url.searchParams.set('month', month);
+            window.history.pushState({}, '', url);
+        }
+
+        // Read month from URL on load
+        function getMonthFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('month') || getCurrentMonth();
+        }
+
+        // Initialize currentMonth from URL
+        currentMonth = getMonthFromUrl();
+
+        // Month navigation
+        prevMonthBtn.addEventListener('click', () => {
+            const { prev } = getPrevNextMonth(currentMonth);
+            currentMonth = prev;
+            updateMonthUrl(currentMonth);
+            render();
+        });
+
+        nextMonthBtn.addEventListener('click', () => {
+            const { next } = getPrevNextMonth(currentMonth);
+            currentMonth = next;
+            updateMonthUrl(currentMonth);
+            render();
+        });
+
+        // Form toggles
+        document.querySelectorAll('.toggle-form').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const form = document.getElementById(btn.dataset.form);
+                form.classList.toggle('hidden');
+                const isHidden = form.classList.contains('hidden');
+                const type = form.querySelector('[name="type"]').value;
+                btn.textContent = isHidden
+                    ? `➕ Ajouter ${type === 'income' ? 'un revenu' : type === 'expense' ? 'une dépense' : "à l'épargne"}`
+                    : '✕ Annuler';
+            });
+        });
+
+        // Form submissions
+        incomeForm.addEventListener('submit', e => { e.preventDefault(); addEntry(incomeForm, 'income'); });
+        expenseForm.addEventListener('submit', e => { e.preventDefault(); addEntry(expenseForm, 'expense'); });
+        savingsForm.addEventListener('submit', e => { e.preventDefault(); addEntry(savingsForm, 'savings'); });
+
+        // Amount input: convert comma to dot on blur
+        document.querySelectorAll('input[name="amount"]').forEach(input => {
+            input.addEventListener('blur', () => {
+                input.value = input.value.replace(',', '.');
+            });
+        });
+
+        // Export CSV
+        exportCsvBtn.addEventListener('click', exportCsv);
+
+        // Initial render
+        render();
+    </script>
+</body>
+</html>
